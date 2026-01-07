@@ -3,49 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CCNA 模擬考 (含倒數計時)</title>
+    <title>CCNA 10題挑戰賽 (隨機版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .option-btn { color: #1f2937 !important; background-color: #ffffff; }
         .correct-text { color: #065f46 !important; font-weight: bold; }
         .wrong-text { color: #991b1b !important; font-weight: bold; }
-        /* 倒數計時告警顏色 */
-        .timer-warning { color: #ef4444 !important; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4 flex flex-col items-center">
+<body class="bg-slate-100 min-h-screen p-4 flex flex-col items-center">
 
-<div class="max-w-3xl w-full bg-white rounded-2xl shadow-xl overflow-hidden mt-6 mb-10 border border-gray-200">
-    <div class="bg-indigo-700 p-4 text-white flex justify-between items-center">
-        <div class="text-sm font-medium" id="q-count">準備中...</div>
-        <div class="flex items-center space-x-2 bg-indigo-800 px-4 py-1 rounded-full border border-indigo-400">
-            <span class="text-xs uppercase opacity-75">剩餘時間</span>
-            <span id="timer" class="font-mono text-lg font-bold">30:00</span>
+<div class="max-w-3xl w-full bg-white rounded-2xl shadow-xl overflow-hidden mt-6 mb-10">
+    <div class="bg-indigo-600 p-5 text-white flex justify-between items-center">
+        <div>
+            <h1 class="text-lg font-bold">CCNA 10題挑戰</h1>
+            <p id="q-count" class="text-xs opacity-80 uppercase tracking-widest">載入中...</p>
+        </div>
+        <div class="text-right">
+            <span id="timer" class="font-mono text-2xl font-bold bg-indigo-700 px-3 py-1 rounded-lg">10:00</span>
         </div>
     </div>
     
     <div class="h-2 bg-gray-200 w-full">
-        <div id="progress-bar" class="h-full bg-green-400 transition-all duration-500" style="width: 0%"></div>
+        <div id="progress-bar" class="h-full bg-indigo-400 transition-all duration-500" style="width: 0%"></div>
     </div>
 
     <div class="p-6 md:p-10">
-        <div id="question" class="text-xl md:text-2xl font-bold text-gray-800 mb-6 leading-relaxed">正在從雲端載入題庫...</div>
+        <div id="question" class="text-xl md:text-2xl font-bold text-gray-800 mb-8 leading-relaxed">正在準備隨機題庫...</div>
         
         <div id="img-container" class="mb-6 hidden">
-            <img id="q-img" src="" class="rounded-lg border shadow-sm mx-auto max-h-64 object-contain bg-white">
+            <img id="q-img" src="" class="rounded-lg border shadow-sm mx-auto max-h-64 bg-white">
         </div>
 
         <div id="options-grid" class="grid gap-4 mb-8"></div>
 
-        <div id="exp-box" class="hidden p-5 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg mb-6">
-            <p class="text-yellow-900 font-bold mb-1 font-sans">💡 考點解析</p>
-            <p id="exp-text" class="text-gray-700 leading-relaxed"></p>
+        <div id="exp-box" class="hidden p-5 bg-blue-50 border-l-4 border-indigo-500 rounded-r-lg mb-8">
+            <p id="exp-text" class="text-indigo-800"></p>
         </div>
 
-        <div class="flex items-center justify-between">
-            <div class="text-gray-500 font-bold">Score: <span id="score-display" class="text-indigo-600">0</span></div>
-            <button id="next-btn" onclick="nextQuestion()" disabled class="bg-indigo-600 text-white px-10 py-3 rounded-xl font-bold text-lg hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-md">
+        <div class="flex items-center justify-between pt-6 border-t border-gray-100">
+            <div class="text-gray-500 font-bold">得分: <span id="score-display" class="text-indigo-600">0</span></div>
+            <button id="next-btn" onclick="nextQuestion()" disabled class="bg-indigo-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-30 shadow-lg transition-all">
                 下一題
             </button>
         </div>
@@ -53,56 +51,48 @@
 </div>
 
 <script>
-    let quizData = [];
+    let allData = [];
+    let quizData = []; // 存放抽選出的 10 題
     let currentIdx = 0;
     let score = 0;
     let timerInterval;
-    const TOTAL_SECONDS = 30 * 60; // 設定測驗時間 (30 分鐘)
-    let secondsLeft = TOTAL_SECONDS;
-
-    const API_URL = 'https://script.google.com/macros/s/AKfycbwY_pt_6EVczd3F8ZwcoGzJCCwooFuFFWU_1pEP9GotcTbGGCqG4FkQOVnD69kbpx3C/exec'; // <--- 填入你的 API
+    const QUIZ_LIMIT = 10; // 限制每次 10 題
+    const API_URL = 'https://script.google.com/macros/s/AKfycbwY_pt_6EVczd3F8ZwcoGzJCCwooFuFFWU_1pEP9GotcTbGGCqG4FkQOVnD69kbpx3C/exec'; // <--- 替換這裡
 
     async function fetchQuiz() {
         try {
             const res = await fetch(API_URL);
-            quizData = await res.json();
-            startTimer(); // 載入完成後開始倒數
+            allData = await res.json();
+            
+            // 1. 隨機打亂所有題目
+            allData.sort(() => Math.random() - 0.5);
+            
+            // 2. 抽取前 10 題
+            quizData = allData.slice(0, QUIZ_LIMIT);
+            
+            startTimer(10 * 60); // 10 分鐘
             showQuestion();
         } catch (e) { 
-            document.getElementById('question').innerHTML = "<span class='text-red-500'>連線失敗！</span><br>請確認 API 網址並將權限設為「任何人」。"; 
+            document.getElementById('question').innerText = "載入失敗，請檢查網路或 API。"; 
         }
     }
 
-    // --- 倒數計時邏輯 ---
-    function startTimer() {
+    function startTimer(seconds) {
+        let timeLeft = seconds;
         timerInterval = setInterval(() => {
-            secondsLeft--;
-            updateTimerDisplay();
-
-            if (secondsLeft <= 60) {
-                document.getElementById('timer').classList.add('timer-warning');
-            }
-
-            if (secondsLeft <= 0) {
-                clearInterval(timerInterval);
-                finishQuiz("時間到！測驗結束。");
-            }
+            timeLeft--;
+            const m = Math.floor(timeLeft/60).toString().padStart(2,'0');
+            const s = (timeLeft%60).toString().padStart(2,'0');
+            document.getElementById('timer').innerText = `${m}:${s}`;
+            if(timeLeft <= 0) { clearInterval(timerInterval); finishQuiz("時間到！"); }
         }, 1000);
-    }
-
-    function updateTimerDisplay() {
-        const mins = Math.floor(secondsLeft / 60);
-        const secs = secondsLeft % 60;
-        document.getElementById('timer').innerText = 
-            `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
 
     function showQuestion() {
         const item = quizData[currentIdx];
-        document.getElementById('q-count').innerText = `QUESTION ${currentIdx + 1} OF ${quizData.length}`;
+        document.getElementById('q-count').innerText = `題號: ${currentIdx + 1} / ${QUIZ_LIMIT}`;
         document.getElementById('question').innerText = item.q;
         
-        // 處理圖片
         const imgCont = document.getElementById('img-container');
         if(item.img && item.img.trim() !== "") {
             document.getElementById('q-img').src = item.img;
@@ -113,17 +103,16 @@
         grid.innerHTML = '';
         document.getElementById('exp-box').classList.add('hidden');
         document.getElementById('next-btn').disabled = true;
-        document.getElementById('progress-bar').style.width = `${((currentIdx + 1)/quizData.length)*100}%`;
+        document.getElementById('progress-bar').style.width = `${((currentIdx + 1)/QUIZ_LIMIT)*100}%`;
 
         item.options.forEach((opt, i) => {
             const btn = document.createElement('button');
-            btn.className = "option-btn p-4 text-left border-2 border-gray-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-400 transition-all text-gray-800 font-medium";
+            btn.className = "option-btn p-4 text-left border-2 border-gray-200 rounded-xl hover:border-indigo-400 transition-all text-gray-800 font-medium";
             btn.innerText = opt;
             
             btn.onclick = () => {
                 const btns = grid.querySelectorAll('button');
                 btns.forEach(b => b.disabled = true);
-                
                 if(i === item.correct) {
                     btn.classList.add('bg-green-100', 'border-green-500', 'correct-text');
                     score++;
@@ -132,8 +121,7 @@
                     btn.classList.add('bg-red-100', 'border-red-500', 'wrong-text');
                     btns[item.correct].classList.add('bg-green-100', 'border-green-500', 'correct-text');
                 }
-                
-                document.getElementById('exp-text').innerText = item.exp;
+                document.getElementById('exp-text').innerText = "💡 解析：" + item.exp;
                 document.getElementById('exp-box').classList.remove('hidden');
                 document.getElementById('next-btn').disabled = false;
             };
@@ -143,18 +131,19 @@
 
     function nextQuestion() {
         currentIdx++;
-        if(currentIdx < quizData.length) {
+        if(currentIdx < QUIZ_LIMIT) {
             showQuestion();
         } else {
-            clearInterval(timerInterval); // 提早做完就停止計時
-            finishQuiz("恭喜完成所有題目！");
+            clearInterval(timerInterval);
+            finishQuiz("挑戰完成！");
         }
     }
 
     function finishQuiz(msg) {
-        const finalScore = Math.round((score / quizData.length) * 100);
-        alert(`${msg}\n您的得分是：${score} / ${quizData.length}\n正確率：${finalScore}%`);
-        location.reload(); // 重新整理開始新的一局
+        const finalScore = Math.round((score / QUIZ_LIMIT) * 100);
+        let rank = finalScore >= 80 ? "優秀！具備考取證照實力" : (finalScore >= 60 ? "及格，再加把勁" : "需要多複習喔！");
+        alert(`${msg}\n得分：${score} / ${QUIZ_LIMIT}\n正確率：${finalScore}%\n評價：${rank}`);
+        location.reload(); 
     }
 
     fetchQuiz();
